@@ -3,7 +3,7 @@ package com.neil.simplerpc.core.server;
 import com.neil.simplerpc.core.client.RpcClient;
 import com.neil.simplerpc.core.method.listener.ClientInvocationListener;
 import com.neil.simplerpc.core.method.listener.ServerInvocationListener;
-import com.neil.simplerpc.core.method.point.MethodMethodInvocationPoint;
+import com.neil.simplerpc.core.method.point.MethodInvocationPoint;
 import org.junit.Test;
 
 /**
@@ -20,7 +20,7 @@ public class RpcServerTest {
                 .workThread(4)
                 .addListener(new ServerInvocationListener() {
                     @Override
-                    public Object around(MethodMethodInvocationPoint point) throws Throwable {
+                    public Object around(MethodInvocationPoint point) throws Throwable {
                         // to do something as framework level without any business.
                         // to add monitor.
                         return point.proceed();
@@ -36,7 +36,7 @@ public class RpcServerTest {
                 .timeout(3000)
                 .addListener(new ClientInvocationListener() {
                     @Override
-                    public Object around(MethodMethodInvocationPoint point) throws Throwable {
+                    public Object around(MethodInvocationPoint point) throws Throwable {
                         // to do something as framework level without any business.
                         // to add monitor.
                         return point.proceed();
