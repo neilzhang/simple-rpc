@@ -1,32 +1,24 @@
 package com.neil.simplerpc.core.client;
 
 import com.neil.simplerpc.core.Request;
-import com.neil.simplerpc.core.Response;
+import com.neil.simplerpc.core.exception.RpcTimeoutException;
 import com.neil.simplerpc.core.method.handler.MethodDelegateInvocationHandler;
 import com.neil.simplerpc.core.method.listener.ClientInvocationListener;
 import com.neil.simplerpc.core.registry.ServiceRegistryCenter;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author neil
  */
 public class RpcClient {
 
-    private final ReentrantLock mainLock = new ReentrantLock();
-
     private int timeout = 3000;
 
     private ClientInvocationListener listener;
 
     private ServiceRegistryCenter center;
-
-    private ConcurrentHashMap<Long, Response> responseMap = new ConcurrentHashMap<>();
-
-    private ResponseShelf responseShelf;
 
     private RequestIdGenerator idGenerator = new RequestIdGenerator();
 
@@ -40,7 +32,6 @@ public class RpcClient {
         this.timeout = timeout;
         this.listener = listener;
         this.center = new ServiceRegistryCenter(zooConn, this);
-        this.responseShelf = new ResponseShelf(timeout);
         this.channelKeeper = new ChannelKeeper(zooConn);
     }
 
@@ -60,7 +51,7 @@ public class RpcClient {
         return proxy;
     }
 
-    public Response call(Class<?> service, Method method, Object[] parameters) {
+    public ResponseFuture call(Class<?> service, Method method, Object[] parameters) throws RpcTimeoutException {
         Request request = new Request();
         request.setServiceName(service.getName());
         request.setMethodName(method.getName());
@@ -68,11 +59,7 @@ public class RpcClient {
         request.setParameters(parameters);
         request.setRequestId(idGenerator.get());
         channelKeeper.selectChannel().writeAndFlush(request);
-        return getResponse(request);
-    }
-
-    private Response getResponse(Request request) {
-        return responseShelf.fetch(request);
+        return new ResponseFuture(request, timeout);
     }
 
 }

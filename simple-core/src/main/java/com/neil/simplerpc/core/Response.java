@@ -34,4 +34,8 @@ public class Response {
     public void setThrowable(Throwable throwable) {
         this.throwable = throwable;
     }
+
+    public boolean isSuccess() {
+        return throwable == null;
+    }
 }

@@ -1,10 +1,22 @@
 package com.neil.simplerpc.core.client;
 
+import com.neil.simplerpc.core.Response;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+
 /**
  * @author neil
  */
-public class ClientHandler {
+public class ClientHandler extends SimpleChannelInboundHandler<Response> {
 
-    private ResponseShelf responseShelf;
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, Response msg) throws Exception {
+        ResponseShelf.place(msg);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        ctx.channel().close();
+    }
 
 }

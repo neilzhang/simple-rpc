@@ -1,5 +1,7 @@
 package com.neil.simplerpc.core.method.point;
 
+import com.neil.simplerpc.core.Response;
+import com.neil.simplerpc.core.client.ResponseFuture;
 import com.neil.simplerpc.core.client.RpcClient;
 
 import java.lang.reflect.Method;
@@ -64,15 +66,20 @@ public class MethodDelegateMethodInvocationPoint implements MethodInvocationPoin
 
     interface DelegatedMethod {
 
-        Object call(Class<?> service, Method method, Object[] args);
+        Object call(Class<?> service, Method method, Object[] args) throws Throwable;
 
     }
 
     class DelegatedMethodImpl implements DelegatedMethod {
 
         @Override
-        public Object call(Class<?> service, Method method, Object[] args) {
-            return rpcClient.call(service, method, args);
+        public Object call(Class<?> service, Method method, Object[] args) throws Throwable {
+            ResponseFuture responseFuture = rpcClient.call(service, method, args);
+            Response response = responseFuture.get();
+            if (!response.isSuccess()) {
+                throw response.getThrowable();
+            }
+            return response.getData();
         }
 
     }
