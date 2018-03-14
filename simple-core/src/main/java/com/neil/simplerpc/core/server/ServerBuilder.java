@@ -9,7 +9,7 @@ public class ServerBuilder {
 
     private int port = 8998;
 
-    private String zooConn;
+    private String zkConn;
 
     private int bossThread = 0;
 
@@ -23,7 +23,7 @@ public class ServerBuilder {
     }
 
     public ServerBuilder zoo(String conn) {
-        this.zooConn = conn;
+        this.zkConn = conn;
         return this;
     }
 
@@ -43,8 +43,8 @@ public class ServerBuilder {
     }
 
     public RpcServer build() {
-        assert zooConn != null;
-        return new RpcServer(port, zooConn, bossThread, workThread, listener);
+        assert zkConn != null;
+        return new RpcServer(port, zkConn, bossThread, workThread, listener);
     }
 
 }

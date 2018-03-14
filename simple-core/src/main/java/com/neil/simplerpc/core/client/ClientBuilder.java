@@ -7,14 +7,14 @@ import com.neil.simplerpc.core.method.listener.ClientInvocationListener;
  */
 public class ClientBuilder {
 
-    private String zooConn;
+    private String zkConn;
 
     private int timeout = 3000;
 
     private ClientInvocationListener listener;
 
     public ClientBuilder zoo(String conn) {
-        this.zooConn = conn;
+        this.zkConn = conn;
         return this;
     }
 
@@ -29,8 +29,8 @@ public class ClientBuilder {
     }
 
     public RpcClient build() {
-        assert zooConn != null;
-        return new RpcClient(zooConn, timeout, listener);
+        assert zkConn != null;
+        return new RpcClient(zkConn, timeout, listener);
     }
 
 

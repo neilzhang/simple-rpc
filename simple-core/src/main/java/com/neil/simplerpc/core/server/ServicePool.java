@@ -1,4 +1,4 @@
-package com.neil.simplerpc.core.proxy;
+package com.neil.simplerpc.core.server;
 
 import java.util.concurrent.ConcurrentHashMap;
 

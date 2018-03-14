@@ -43,11 +43,19 @@ public class RpcServerTest {
                     }
                 })
                 .build();
-        rpcClient.init();
 
         HelloWordService helloWordService = rpcClient.proxy(HelloWordService.class);
 
         helloWordService.sayHello();
+
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            //never happen
+        }
+
+        rpcClient.close();
+        rpcServer.shutdown();
     }
 
     interface HelloWordService {

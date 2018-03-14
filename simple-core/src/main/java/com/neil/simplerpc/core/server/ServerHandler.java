@@ -2,7 +2,6 @@ package com.neil.simplerpc.core.server;
 
 import com.neil.simplerpc.core.Request;
 import com.neil.simplerpc.core.Response;
-import com.neil.simplerpc.core.proxy.ServicePool;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 

@@ -6,28 +6,37 @@ import com.neil.simplerpc.core.codec.KryoEncoder;
 import com.neil.simplerpc.core.exception.SimpleRpcException;
 import com.neil.simplerpc.core.method.handler.MethodProxyInvocationHandler;
 import com.neil.simplerpc.core.method.listener.ServerInvocationListener;
-import com.neil.simplerpc.core.proxy.ServicePool;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.apache.curator.utils.ZKPaths;
+import org.apache.zookeeper.CreateMode;
 
 import java.lang.reflect.Proxy;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author neil
  */
 public class RpcServer {
 
+    private static final String ROOT_PATH = "/simple-rpc";
+
+    private final String host;
+
     private final int port;
 
-    private final String zooConn;
+    private final String zkConn;
 
     private final ServerInvocationListener listener;
 
@@ -37,9 +46,13 @@ public class RpcServer {
 
     private final ServerHandler serverHandler;
 
+    private final CuratorFramework zkClient;
+
     private final EventLoopGroup bossGroup;
 
     private final EventLoopGroup workerGroup;
+
+    private List<Class<?>> registeredServices = new ArrayList<>();
 
     private static final int STATE_CLOSED = -1;
 
@@ -52,20 +65,26 @@ public class RpcServer {
      */
     private volatile int state = STATE_INITIATED;
 
-    public RpcServer(int port, String zooConn, int bossThread, int workThread) {
-        this(port, zooConn, bossThread, workThread, null);
+    public RpcServer(int port, String zkConn, int bossThread, int workThread) {
+        this(port, zkConn, bossThread, workThread, null);
     }
 
-    public RpcServer(int port, String zooConn, int bossThread, int workThread, ServerInvocationListener listener) {
+    public RpcServer(int port, String zkConn, int bossThread, int workThread, ServerInvocationListener listener) {
+        try {
+            this.host = InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            throw new SimpleRpcException("");
+        }
         this.port = port;
-        this.zooConn = zooConn;
+        this.zkConn = zkConn;
         this.listener = listener;
         this.kryo = new Kryo();
         this.servicePool = new ServicePool();
         this.serverHandler = new ServerHandler(servicePool);
         this.bossGroup = new NioEventLoopGroup(bossThread);
         this.workerGroup = new NioEventLoopGroup(workThread);
-
+        this.zkClient = CuratorFrameworkFactory.newClient(zkConn, new ExponentialBackoffRetry(1000, 3));
+        this.zkClient.start();
     }
 
     public static ServerBuilder builder() {
@@ -74,49 +93,42 @@ public class RpcServer {
 
     public void start() {
         if (state == STATE_INITIATED) {
-            try {
-                ServerBootstrap b = new ServerBootstrap();
-                b.group(bossGroup, workerGroup)
-                        .channel(NioServerSocketChannel.class)
-                        .childHandler(new ChannelInitializer<SocketChannel>() {
-                            @Override
-                            public void initChannel(SocketChannel ch) throws Exception {
-                                ch.pipeline()
-                                        .addLast(new LengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4))
-                                        .addLast(new LengthFieldPrepender(4))
-                                        .addLast(new KryoDecoder(kryo))
-                                        .addLast(new KryoEncoder(kryo))
-                                        .addLast(serverHandler);
-                            }
+            state = STATE_STARTED;
+            ServerBootstrap b = new ServerBootstrap();
+            b.group(bossGroup, workerGroup)
+                    .channel(NioServerSocketChannel.class)
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        public void initChannel(SocketChannel ch) throws Exception {
+                            ch.pipeline()
+                                    .addLast(new LengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4))
+                                    .addLast(new LengthFieldPrepender(4))
+                                    .addLast(new KryoDecoder(kryo))
+                                    .addLast(new KryoEncoder(kryo))
+                                    .addLast(serverHandler);
+                        }
 
-                            @Override
-                            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-                                ctx.close();
-                            }
-                        });
+                        @Override
+                        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                            ctx.close();
+                        }
+                    });
 
-                try {
-                    // Bind and start to accept incoming connections.
-                    ChannelFuture f = b.bind(port).sync();
+            b.bind(port).channel().closeFuture().addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
 
-                    registerServer();
-
-                    // Wait until the server socket is closed.
-                    // In this example, this does not happen, but you can do that to gracefully
-                    // shut down your server.
-                    f.channel().closeFuture().sync();
-                } catch (InterruptedException e) {
-                    throw new SimpleRpcException("");
                 }
-            } finally {
-                workerGroup.shutdownGracefully();
-                bossGroup.shutdownGracefully();
-            }
+            });
         }
     }
 
     public void shutdown() {
         if (state == STATE_STARTED) {
+            state = STATE_CLOSED;
+            for (Class<?> service : registeredServices) {
+                unregister(service);
+            }
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
         }
@@ -128,10 +140,30 @@ public class RpcServer {
                 new Class[]{service},
                 new MethodProxyInvocationHandler(serviceImpl, listener));
         servicePool.add(service.getName(), proxy);
+        String servicePath = getServicePath(service);
+        String target = host + ":" + port;
+        try {
+            zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(ZKPaths.makePath(servicePath, target));
+            registeredServices.add(service);
+        } catch (Exception e) {
+            // TODO
+        }
     }
 
-    private void registerServer() {
+    private void unregister(Class<?> service) {
+        if (registeredServices.remove(service)) {
+            String servicePath = getServicePath(service);
+            String target = host + ":" + port;
+            try {
+                zkClient.delete().deletingChildrenIfNeeded().forPath(ZKPaths.makePath(servicePath, target));
+            } catch (Exception e) {
+                // TODO
+            }
+        }
+    }
 
+    private String getServicePath(Class<?> service) {
+        return ROOT_PATH + "/" + service.getName();
     }
 
 }
