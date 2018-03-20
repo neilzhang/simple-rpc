@@ -16,8 +16,6 @@ public class MethodProxyInvocationHandler implements InvocationHandler {
 
     private final MethodInvocationListener listener;
 
-    private final MethodInvocationPoint point;
-
     public MethodProxyInvocationHandler(Object target) {
         this(target, null);
     }
@@ -25,14 +23,14 @@ public class MethodProxyInvocationHandler implements InvocationHandler {
     public MethodProxyInvocationHandler(Object target, MethodInvocationListener listener) {
         this.target = target;
         this.listener = listener;
-        this.point = new MethodProxyMethodInvocationPoint();
     }
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        MethodInvocationPoint point = new MethodProxyMethodInvocationPoint();
         point.setTarget(target);
         point.setMethod(method);
-        point.setTarget(args);
+        point.setArgs(args);
         if (listener == null) {
             return point.proceed();
         } else {

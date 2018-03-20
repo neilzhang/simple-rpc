@@ -16,6 +16,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<Response> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        cause.printStackTrace();
         ctx.channel().close();
     }
 

@@ -52,7 +52,8 @@ public class ServerHandler extends SimpleChannelInboundHandler<Request> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        ctx.channel().close();
+        cause.printStackTrace();
+//        ctx.channel().close();
     }
 
     private Method getMethod(String serviceName, String methodName, Class<?>[] parameterTypes) {

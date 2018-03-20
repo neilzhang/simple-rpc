@@ -13,12 +13,10 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
 import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
 
-import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,7 +33,7 @@ public class ServiceChannel {
 
     private final ExecutorService recoverService = Executors.newSingleThreadExecutor();
 
-    private final ExecutorService zkListenerExecutor = Executors.newFixedThreadPool(2);
+    private final ExecutorService zkListenerExecutor = Executors.newSingleThreadExecutor();
 
     private final CopyOnWriteArrayList<ChannelWrapper> channelWrapperList = new CopyOnWriteArrayList<>();
 
@@ -80,13 +78,6 @@ public class ServiceChannel {
                                 }
                                 channelWrapperList.add(new ChannelWrapper(target));
                                 break;
-                            case INITIALIZED:
-                                List<ChildData> initialData = event.getInitialData();
-                                for (ChildData childData : initialData) {
-                                    target = new String(childData.getData());
-                                    channelWrapperList.add(new ChannelWrapper(target));
-                                }
-                                break;
                             default:
                                 break;
                         }
@@ -95,9 +86,10 @@ public class ServiceChannel {
                 zkListenerExecutor
         );
         try {
-            childrenCache.start(PathChildrenCache.StartMode.POST_INITIALIZED_EVENT);
+            childrenCache.start();
         } catch (Exception e) {
             // TODO
+            e.printStackTrace();
         }
     }
 
@@ -117,14 +109,17 @@ public class ServiceChannel {
 
     private ChannelWrapper selectChannel() {
         ChannelWrapper channel = null;
-        while (!channelWrapperList.isEmpty()) {
+        int failCount = 0;
+        while (!channelWrapperList.isEmpty() && failCount < 3) {
             int index = (int) Math.abs(count.incrementAndGet() % channelWrapperList.size());
             channel = channelWrapperList.get(index);
             if (channel.isActive()) {
                 break;
             } else {
-                recoverService.submit(new RecoverTask(channel));
-                continue;
+                if (channel.isConnectionBroken()) {
+                    recoverService.submit(new RecoverTask(channel));
+                }
+                failCount++;
             }
         }
         return channel;
@@ -140,6 +135,10 @@ public class ServiceChannel {
 
         private Channel channel;
 
+        private volatile boolean active = true;
+
+        private long lastActiveTimestamp = -1L;
+
         private EventLoopGroup workerGroup = new NioEventLoopGroup();
 
         public ChannelWrapper(String target) {
@@ -151,12 +150,23 @@ public class ServiceChannel {
             return target;
         }
 
-        public Channel getChannel() {
-            return channel;
+        public void send(Object msg) {
+            if (channel.isActive()) {
+                channel.writeAndFlush(msg);
+                lastActiveTimestamp = System.currentTimeMillis();
+            } else {
+                throw new SimpleRpcException("Channel is not active. Message: `" + msg + "`.");
+            }
         }
 
         public boolean isActive() {
-            return channel.isActive();
+            return active && channel.isActive();
+        }
+
+        public boolean isConnectionBroken() {
+            return !channel.isActive()
+                    && lastActiveTimestamp != -1L
+                    && System.currentTimeMillis() - lastActiveTimestamp > 3 * 1000L;
         }
 
         public void close() {
@@ -167,8 +177,14 @@ public class ServiceChannel {
             workerGroup.shutdownGracefully();
         }
 
-        public void send(Object msg) {
-            channel.writeAndFlush(msg);
+        public void reopen() {
+            active = false;
+            if (channel != null) {
+                channel.close();
+                channel = null;
+            }
+            channel = createChannel(target);
+            active = true;
         }
 
         private Channel createChannel(String target) {
@@ -203,7 +219,7 @@ public class ServiceChannel {
                 }
             });
 
-            Channel channel = b.bind(ip, port).channel();
+            Channel channel = b.connect(ip, port).channel();
             channel.closeFuture().addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
@@ -212,7 +228,6 @@ public class ServiceChannel {
             });
             return channel;
         }
-
     }
 
     public class RecoverTask implements Runnable {
@@ -226,11 +241,10 @@ public class ServiceChannel {
         @Override
         public void run() {
             try {
-                channel.close();
-                channelWrapperList.remove(channel);
-                channelWrapperList.add(new ChannelWrapper(channel.getTarget()));
+                channel.reopen();
             } catch (Exception e) {
                 // TODO
+                e.printStackTrace();
             }
         }
 

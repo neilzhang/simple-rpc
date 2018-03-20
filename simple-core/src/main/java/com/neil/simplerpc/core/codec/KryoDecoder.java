@@ -14,7 +14,7 @@ import java.util.List;
  */
 public class KryoDecoder extends MessageToMessageDecoder<ByteBuf> {
 
-    private final Kryo kryo;
+    private Kryo kryo;
 
     public KryoDecoder(Kryo kryo) {
         this.kryo = kryo;
@@ -22,6 +22,7 @@ public class KryoDecoder extends MessageToMessageDecoder<ByteBuf> {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf msg, List<Object> out) throws Exception {
+        kryo = new Kryo();
         final byte[] array;
         final int length = msg.readableBytes();
         if (msg.hasArray()) {

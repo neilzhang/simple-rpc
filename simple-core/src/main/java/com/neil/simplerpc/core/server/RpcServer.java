@@ -22,8 +22,7 @@ import org.apache.zookeeper.CreateMode;
 import java.lang.reflect.Proxy;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * @author neil
@@ -52,7 +51,7 @@ public class RpcServer {
 
     private final EventLoopGroup workerGroup;
 
-    private List<Class<?>> registeredServices = new ArrayList<>();
+    private CopyOnWriteArrayList<Class<?>> registeredServices = new CopyOnWriteArrayList<>();
 
     private static final int STATE_CLOSED = -1;
 
@@ -129,6 +128,7 @@ public class RpcServer {
             for (Class<?> service : registeredServices) {
                 unregister(service);
             }
+            zkClient.close();
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
         }
@@ -143,10 +143,13 @@ public class RpcServer {
         String servicePath = getServicePath(service);
         String target = host + ":" + port;
         try {
-            zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(ZKPaths.makePath(servicePath, target));
+            String instancePath = ZKPaths.makePath(servicePath, target);
+            zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.PERSISTENT).forPath(instancePath);
+            zkClient.setData().forPath(instancePath, target.getBytes());
             registeredServices.add(service);
         } catch (Exception e) {
             // TODO
+            e.printStackTrace();
         }
     }
 
