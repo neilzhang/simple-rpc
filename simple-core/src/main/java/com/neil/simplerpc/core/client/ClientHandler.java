@@ -9,9 +9,15 @@ import io.netty.channel.SimpleChannelInboundHandler;
  */
 public class ClientHandler extends SimpleChannelInboundHandler<Response> {
 
+    private final ClientContext clientContext;
+
+    public ClientHandler(ClientContext clientContext) {
+        this.clientContext = clientContext;
+    }
+
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Response msg) throws Exception {
-        ResponseShelf.place(msg);
+        clientContext.placeResponse(msg);
     }
 
     @Override

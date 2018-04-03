@@ -1,10 +1,15 @@
 package com.neil.simplerpc.core;
 
 /**
+ * Rpc 请求对象
+ *
  * @author neil
  */
 public class Request {
 
+    /**
+     * 请求 ID，
+     */
     private long requestId;
 
     private String serviceName;
@@ -54,4 +59,5 @@ public class Request {
     public void setParameters(Object[] parameters) {
         this.parameters = parameters;
     }
+
 }

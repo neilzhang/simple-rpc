@@ -5,14 +5,11 @@ import com.neil.simplerpc.core.exception.RpcTimeoutException;
 import com.neil.simplerpc.core.exception.SimpleRpcException;
 import com.neil.simplerpc.core.method.handler.MethodDelegateInvocationHandler;
 import com.neil.simplerpc.core.method.listener.ClientInvocationListener;
-import org.apache.curator.RetryPolicy;
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.CuratorFrameworkFactory;
-import org.apache.curator.retry.ExponentialBackoffRetry;
+import com.neil.simplerpc.core.registry.discovery.ServiceDiscovery;
+import com.neil.simplerpc.core.service.ServiceDescriptor;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author neil
@@ -25,9 +22,17 @@ public class RpcClient {
 
     private RequestIdGenerator idGenerator = new RequestIdGenerator();
 
-    private ConcurrentHashMap<Class<?>, ServiceChannel> serviceChannelMap = new ConcurrentHashMap<>();
+    private ClientContext clientContext;
 
-    private CuratorFramework zkClient;
+    private ServiceDiscovery serviceDiscovery;
+
+    private static final int STATE_CLOSED = -1;
+
+    private static final int STATE_STARTED = 1;
+
+    private static final int STATE_INITIATED = 0;
+
+    private static volatile int state = STATE_INITIATED;
 
     public RpcClient(String zkConn, int timeout) {
         this(zkConn, timeout, null);
@@ -36,10 +41,10 @@ public class RpcClient {
     public RpcClient(String zkConn, int timeout, ClientInvocationListener listener) {
         this.timeout = timeout;
         this.listener = listener;
-
-        RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 3);
-        zkClient = CuratorFrameworkFactory.newClient(zkConn, retryPolicy);
-        zkClient.start();
+        this.clientContext = new ClientContext();
+        if (zkConn != null) {
+            this.serviceDiscovery = new ServiceDiscovery(zkConn);
+        }
     }
 
     public static ClientBuilder builder() {
@@ -50,9 +55,11 @@ public class RpcClient {
         Object proxy = Proxy.newProxyInstance(
                 this.getClass().getClassLoader(),
                 new Class[]{service},
-                new MethodDelegateInvocationHandler(this, service, listener));
-        ServiceChannel serviceChannel = new ServiceChannel(service, zkClient);
-        serviceChannelMap.put(service, serviceChannel);
+                new MethodDelegateInvocationHandler(this, service, this.listener));
+        ServiceDescriptor descriptor = new ServiceDescriptor(service.getName());
+        if (this.serviceDiscovery != null) {
+            this.serviceDiscovery.subscribe(descriptor, this.clientContext.getServiceContainer());
+        }
         return (T) proxy;
     }
 
@@ -62,18 +69,36 @@ public class RpcClient {
         request.setMethodName(method.getName());
         request.setParameterTypes(method.getParameterTypes());
         request.setParameters(parameters);
-        request.setRequestId(idGenerator.get());
-        ServiceChannel serviceChannel = serviceChannelMap.get(service);
-        if (serviceChannel == null) {
-            throw new SimpleRpcException("there are no available service channel. Service: `" + service + "`. Method: `" + method + "`. Parameters: `" + parameters + "`.");
+        request.setRequestId(this.idGenerator.get());
+        ServiceDescriptor descriptor = new ServiceDescriptor(service.getName());
+        ServiceProxy proxy = this.clientContext.getServiceProxy(descriptor);
+        if (proxy == null) {
+            throw new SimpleRpcException("there is no available service proxy. service name: `" + service.getName() + "`.");
         }
-        serviceChannel.call(request);
-        return new ResponseFuture(request, timeout);
+        proxy.call(request);
+        return new ResponseFuture(request, this.timeout, this.clientContext);
+    }
+
+    public void start() {
+        if (this.state == STATE_INITIATED) {
+            this.state = STATE_STARTED;
+            if (this.serviceDiscovery != null) {
+                this.serviceDiscovery.start();
+            }
+        }
     }
 
     public void close() {
-        for (ServiceChannel serviceChannel : serviceChannelMap.values()) {
-            serviceChannel.close();
+        if (this.state == STATE_STARTED) {
+            this.state = STATE_CLOSED;
+            closeDiscovery();
+            this.clientContext.getServiceContainer().close();
+        }
+    }
+
+    private void closeDiscovery() {
+        if (this.serviceDiscovery != null) {
+            this.serviceDiscovery.close();
         }
     }
 

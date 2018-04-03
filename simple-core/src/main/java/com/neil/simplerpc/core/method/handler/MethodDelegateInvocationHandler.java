@@ -14,16 +14,16 @@ import java.lang.reflect.Method;
  */
 public class MethodDelegateInvocationHandler implements InvocationHandler {
 
-    private final MethodInvocationListener listener;
-
     private final RpcClient rpcClient;
 
     private final Class<?> service;
 
+    private final MethodInvocationListener listener;
+
     public MethodDelegateInvocationHandler(RpcClient rpcClient, Class<?> service, ClientInvocationListener listener) {
-        this.listener = listener;
         this.rpcClient = rpcClient;
         this.service = service;
+        this.listener = listener;
     }
 
     @Override

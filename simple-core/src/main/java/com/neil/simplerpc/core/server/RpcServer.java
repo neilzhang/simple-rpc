@@ -1,11 +1,13 @@
 package com.neil.simplerpc.core.server;
 
-import com.esotericsoftware.kryo.Kryo;
 import com.neil.simplerpc.core.codec.KryoDecoder;
 import com.neil.simplerpc.core.codec.KryoEncoder;
-import com.neil.simplerpc.core.exception.SimpleRpcException;
+import com.neil.simplerpc.core.service.ServiceDescriptor;
+import com.neil.simplerpc.core.service.ServiceInstance;
+import com.neil.simplerpc.core.registry.provider.ServiceProvider;
 import com.neil.simplerpc.core.method.handler.MethodProxyInvocationHandler;
 import com.neil.simplerpc.core.method.listener.ServerInvocationListener;
+import com.neil.simplerpc.core.util.HostUtil;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -13,45 +15,27 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.CuratorFrameworkFactory;
-import org.apache.curator.retry.ExponentialBackoffRetry;
-import org.apache.curator.utils.ZKPaths;
-import org.apache.zookeeper.CreateMode;
 
 import java.lang.reflect.Proxy;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * @author neil
  */
 public class RpcServer {
 
-    private static final String ROOT_PATH = "/simple-rpc";
-
     private final String host;
 
     private final int port;
 
-    private final String zkConn;
-
     private final ServerInvocationListener listener;
-
-    private final Kryo kryo;
-
-    private final ServicePool servicePool;
-
-    private final ServerHandler serverHandler;
-
-    private final CuratorFramework zkClient;
 
     private final EventLoopGroup bossGroup;
 
     private final EventLoopGroup workerGroup;
 
-    private CopyOnWriteArrayList<Class<?>> registeredServices = new CopyOnWriteArrayList<>();
+    private final ServerContext serverContext;
+
+    private ServiceProvider serviceProvider;
 
     private static final int STATE_CLOSED = -1;
 
@@ -64,26 +48,24 @@ public class RpcServer {
      */
     private volatile int state = STATE_INITIATED;
 
+    public RpcServer(int port, int bossThread, int workThread) {
+        this(port, null, bossThread, workThread, null);
+    }
+
     public RpcServer(int port, String zkConn, int bossThread, int workThread) {
         this(port, zkConn, bossThread, workThread, null);
     }
 
     public RpcServer(int port, String zkConn, int bossThread, int workThread, ServerInvocationListener listener) {
-        try {
-            this.host = InetAddress.getLocalHost().getHostAddress();
-        } catch (UnknownHostException e) {
-            throw new SimpleRpcException("");
-        }
+        this.host = HostUtil.getLocalHost();
         this.port = port;
-        this.zkConn = zkConn;
         this.listener = listener;
-        this.kryo = new Kryo();
-        this.servicePool = new ServicePool();
-        this.serverHandler = new ServerHandler(servicePool);
         this.bossGroup = new NioEventLoopGroup(bossThread);
         this.workerGroup = new NioEventLoopGroup(workThread);
-        this.zkClient = CuratorFrameworkFactory.newClient(zkConn, new ExponentialBackoffRetry(1000, 3));
-        this.zkClient.start();
+        this.serverContext = new ServerContext();
+        if (zkConn != null) {
+            this.serviceProvider = new ServiceProvider(zkConn);
+        }
     }
 
     public static ServerBuilder builder() {
@@ -91,10 +73,11 @@ public class RpcServer {
     }
 
     public void start() {
-        if (state == STATE_INITIATED) {
-            state = STATE_STARTED;
+        if (this.state == STATE_INITIATED) {
+            this.state = STATE_STARTED;
+            final ServerContext context = this.serverContext;
             ServerBootstrap b = new ServerBootstrap();
-            b.group(bossGroup, workerGroup)
+            b.group(this.bossGroup, this.workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
@@ -102,9 +85,9 @@ public class RpcServer {
                             ch.pipeline()
                                     .addLast(new LengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4))
                                     .addLast(new LengthFieldPrepender(4))
-                                    .addLast(new KryoDecoder(kryo))
-                                    .addLast(new KryoEncoder(kryo))
-                                    .addLast(serverHandler);
+                                    .addLast(new KryoDecoder())
+                                    .addLast(new KryoEncoder())
+                                    .addLast(new ServerHandler(context));
                         }
 
                         @Override
@@ -113,60 +96,52 @@ public class RpcServer {
                         }
                     });
 
-            b.bind(port).channel().closeFuture().addListener(new ChannelFutureListener() {
+            b.bind(this.port).channel().closeFuture().addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
 
                 }
             });
+            startPublisher();
         }
     }
 
     public void shutdown() {
         if (state == STATE_STARTED) {
             state = STATE_CLOSED;
-            for (Class<?> service : registeredServices) {
-                unregister(service);
-            }
-            zkClient.close();
+            closePublisher();
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
         }
     }
 
-    public void register(Class<?> service, Object serviceImpl) {
+    public void publish(Class<?> service, Object serviceImpl) {
         Object proxy = Proxy.newProxyInstance(
                 this.getClass().getClassLoader(),
                 new Class[]{service},
                 new MethodProxyInvocationHandler(serviceImpl, listener));
-        servicePool.add(service.getName(), proxy);
-        String servicePath = getServicePath(service);
-        String target = host + ":" + port;
-        try {
-            String instancePath = ZKPaths.makePath(servicePath, target);
-            zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.PERSISTENT).forPath(instancePath);
-            zkClient.setData().forPath(instancePath, target.getBytes());
-            registeredServices.add(service);
-        } catch (Exception e) {
-            // TODO
-            e.printStackTrace();
+        serverContext.registerBean(service, proxy);
+        publish(service.getName(), host, port);
+    }
+
+    private void startPublisher() {
+        if (serviceProvider != null) {
+            this.serviceProvider.start();
         }
     }
 
-    private void unregister(Class<?> service) {
-        if (registeredServices.remove(service)) {
-            String servicePath = getServicePath(service);
-            String target = host + ":" + port;
-            try {
-                zkClient.delete().deletingChildrenIfNeeded().forPath(ZKPaths.makePath(servicePath, target));
-            } catch (Exception e) {
-                // TODO
-            }
+    private void closePublisher() {
+        if (serviceProvider != null) {
+            serviceProvider.close();
         }
     }
 
-    private String getServicePath(Class<?> service) {
-        return ROOT_PATH + "/" + service.getName();
+    private void publish(String service, String host, int port) {
+        ServiceDescriptor descriptor = new ServiceDescriptor(service);
+        ServiceInstance instance = new ServiceInstance(descriptor, host, port);
+        if (serviceProvider != null) {
+            serviceProvider.publish(instance);
+        }
     }
 
 }

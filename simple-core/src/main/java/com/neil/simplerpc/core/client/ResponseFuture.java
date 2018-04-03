@@ -2,6 +2,7 @@ package com.neil.simplerpc.core.client;
 
 import com.neil.simplerpc.core.Request;
 import com.neil.simplerpc.core.Response;
+import com.neil.simplerpc.core.client.ClientContext;
 import com.neil.simplerpc.core.exception.RpcTimeoutException;
 
 import java.util.concurrent.TimeUnit;
@@ -17,13 +18,16 @@ public class ResponseFuture {
 
     private final long timeout;
 
+    private final ClientContext clientContext;
+
     private final ReentrantLock lock = new ReentrantLock();
 
     private final Condition done = lock.newCondition();
 
-    public ResponseFuture(Request request, long timeout) {
+    public ResponseFuture(Request request, long timeout, ClientContext clientContext) {
         this.request = request;
         this.timeout = timeout;
+        this.clientContext = clientContext;
     }
 
     public Response get() throws RpcTimeoutException {
@@ -32,8 +36,8 @@ public class ResponseFuture {
         ReentrantLock lock = this.lock;
         try {
             lock.lockInterruptibly();
-            Response response = ResponseShelf.fetch(requestId);
-            for (; response == null; response = ResponseShelf.fetch(requestId)) {
+            Response response = clientContext.fetchResponse(requestId);
+            for (; response == null; response = clientContext.fetchResponse(requestId)) {
                 if (nanos <= 0) {
                     throw new RpcTimeoutException("Rpc request timeout. request: `" + request + "`. timeout: `" + timeout + "`.");
                 }

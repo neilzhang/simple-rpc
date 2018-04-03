@@ -16,21 +16,25 @@ import static io.netty.buffer.Unpooled.wrappedBuffer;
  */
 public class KryoEncoder extends MessageToMessageEncoder<Object> {
 
-    private Kryo kryo;
-
-    public KryoEncoder(Kryo kryo) {
-        this.kryo = kryo;
-    }
+    private ThreadLocal<Kryo> kryoMap = new ThreadLocal<>();
 
     @Override
     protected void encode(ChannelHandlerContext ctx, Object msg, List<Object> out) throws Exception {
-        kryo = new Kryo();
         try (ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream(1024);
              Output output = new Output(byteOutputStream)) {
-            kryo.writeClassAndObject(output, msg);
+            getKryo().writeClassAndObject(output, msg);
             output.flush();
             out.add(wrappedBuffer(byteOutputStream.toByteArray()));
         }
+    }
+
+    private Kryo getKryo() {
+        Kryo kryo = kryoMap.get();
+        if (kryo == null) {
+            kryo = new Kryo();
+            kryoMap.set(kryo);
+        }
+        return kryo;
     }
 
 }

@@ -14,69 +14,82 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ServerHandler extends SimpleChannelInboundHandler<Request> {
 
-    private final ServicePool servicePool;
+    private final ServerContext serverContext;
 
-    private ConcurrentHashMap<String, Method> methodMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Method> methodMap;
 
-    public ServerHandler(ServicePool servicePool) {
-        this.servicePool = servicePool;
+    private final Object methodMapLock = new Object();
+
+    public ServerHandler(ServerContext serverContext) {
+        this.serverContext = serverContext;
+        this.methodMap = new ConcurrentHashMap<>();
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Request msg) throws Exception {
-        String serviceName = msg.getServiceName();
-        String methodName = msg.getMethodName();
-        Class<?>[] parameterTypes = msg.getParameterTypes();
-        Object service = servicePool.getService(serviceName);
-        if (service == null) {
-            // TODO add logger
-            return;
-        }
-        Method method = getMethod(serviceName, methodName, parameterTypes);
-        if (method == null) {
-            // TODO add logger
-            return;
-        }
         Response response = new Response();
         response.setRequestId(msg.getRequestId());
+        String serviceName = msg.getServiceName();
+        String methodName = msg.getMethodName();
         Object[] params = msg.getParameters();
-        method.setAccessible(true);
+        Class<?>[] parameterTypes = msg.getParameterTypes();
+        Object bean = serverContext.getBean(serviceName);
+        if (bean == null) {
+            // TODO add logger
+            response.setThrowable(new Throwable(""));
+            writeResponse(ctx, response);
+            return;
+        }
+        Method method = cacheAndGetMethod(bean, methodName, parameterTypes);
+        if (method == null) {
+            // TODO add logger
+            response.setThrowable(new Throwable(""));
+            writeResponse(ctx, response);
+            return;
+        }
         try {
-            Object result = method.invoke(service, params);
+            method.setAccessible(true);
+            Object result = method.invoke(bean, params);
             response.setData(result);
+
         } catch (InvocationTargetException e) {
             response.setThrowable(e.getCause());
         }
-        ctx.writeAndFlush(response);
+        writeResponse(ctx, response);
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         cause.printStackTrace();
-//        ctx.channel().close();
     }
 
-    private Method getMethod(String serviceName, String methodName, Class<?>[] parameterTypes) {
-        Object service = servicePool.getService(serviceName);
-        if (service == null) {
-            return null;
-        }
-        String signature = getSignature(serviceName, methodName, parameterTypes);
+    private void writeResponse(ChannelHandlerContext ctx, Response response) {
+        ctx.writeAndFlush(response);
+    }
+
+    private Method cacheAndGetMethod(Object bean, String methodName, Class<?>[] parameterTypes) {
+        String signature = getSignature(bean, methodName, parameterTypes);
         Method method = methodMap.get(signature);
-        if (method != null) {
-            return method;
-        }
-        try {
-            method = service.getClass().getDeclaredMethod(methodName, parameterTypes);
-            methodMap.put(signature, method);
-        } catch (NoSuchMethodException e) {
-            // TODO add logger
+        if (method == null) {
+            synchronized (methodMapLock) {
+                method = methodMap.get(signature);
+                if (method == null) {
+                    try {
+                        method = bean.getClass().getDeclaredMethod(methodName, parameterTypes);
+                        methodMap.put(signature, method);
+                    } catch (NoSuchMethodException e) {
+                        // TODO add logger
+                        e.printStackTrace();
+                    }
+                }
+            }
         }
         return method;
     }
 
-    private String getSignature(String serviceName, String methodName, Class<?>[] parameterTypes) {
+    private String getSignature(Object bean, String methodName, Class<?>[] parameterTypes) {
         StringBuilder signature = new StringBuilder();
+        String serviceName = bean.getClass().getName();
         signature.append(serviceName);
         signature.append('.');
         signature.append(methodName);

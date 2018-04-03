@@ -14,15 +14,10 @@ import java.util.List;
  */
 public class KryoDecoder extends MessageToMessageDecoder<ByteBuf> {
 
-    private Kryo kryo;
-
-    public KryoDecoder(Kryo kryo) {
-        this.kryo = kryo;
-    }
+    private ThreadLocal<Kryo> kryoMap = new ThreadLocal<>();
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf msg, List<Object> out) throws Exception {
-        kryo = new Kryo();
         final byte[] array;
         final int length = msg.readableBytes();
         if (msg.hasArray()) {
@@ -33,8 +28,17 @@ public class KryoDecoder extends MessageToMessageDecoder<ByteBuf> {
         }
         try (ByteArrayInputStream byteInputStream = new ByteArrayInputStream(array);
              Input input = new Input(byteInputStream)) {
-            out.add(kryo.readClassAndObject(input));
+            out.add(getKryo().readClassAndObject(input));
         }
+    }
+
+    private Kryo getKryo() {
+        Kryo kryo = kryoMap.get();
+        if (kryo == null) {
+            kryo = new Kryo();
+            kryoMap.set(kryo);
+        }
+        return kryo;
     }
 
 }

@@ -37,9 +37,9 @@ public class RpcServerTest {
                     rpcServer.shutdown();
                     System.out.println("stopped");
                     return;
-                case "register":
-                    rpcServer.register(HelloWordService.class, new HelloWordServiceImpl());
-                    System.out.println("registered");
+                case "publish":
+                    rpcServer.publish(HelloWordService.class, new HelloWordServiceImpl());
+                    System.out.println("published");
                     break;
             }
         }

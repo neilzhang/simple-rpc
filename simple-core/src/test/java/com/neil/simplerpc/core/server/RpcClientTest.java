@@ -20,7 +20,7 @@ public class RpcClientTest {
             switch (cmd) {
                 case "start":
                     rpcClient = RpcClient.builder()
-                            .zoo("127.0.0.1:2181")
+                            .zkCoon("127.0.0.1:2181")
                             .timeout(3000)
                             .addListener(new ClientInvocationListener() {
                                 @Override
@@ -31,6 +31,7 @@ public class RpcClientTest {
                                 }
                             })
                             .build();
+                    rpcClient.start();
                     helloWordService = rpcClient.proxy(HelloWordService.class);
                     System.out.println("started");
                     break;
