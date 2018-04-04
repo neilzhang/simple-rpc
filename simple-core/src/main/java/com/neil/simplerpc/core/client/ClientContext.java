@@ -1,55 +1,35 @@
 package com.neil.simplerpc.core.client;
 
-import com.neil.simplerpc.core.Response;
-import com.neil.simplerpc.core.service.ServiceDescriptor;
-
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
- * 用于临时存储 Response 的数据结构
- * <p>该类实现是线程安全的</p>
+ * 客户端上下文
  *
  * @author neil
  */
 public class ClientContext {
 
-    /**
-     * Response Map，Key 为请求 ID，Value 为 Response
-     */
-    private final ConcurrentHashMap<Long, Response> responseMap;
+    private final ResponseContainer responseContainer;
 
-    private final ServiceContainer container;
+    /**
+     * 服务容器
+     */
+    private final ServiceContainer serviceContainer;
 
     public ClientContext() {
-        this.responseMap = new ConcurrentHashMap<>();
-        this.container = new ServiceContainer(this);
+        this.responseContainer = new ResponseContainer(this);
+        this.serviceContainer = new ServiceContainer(this);
+    }
+
+    public ResponseContainer getResponseContainer() {
+        return this.responseContainer;
     }
 
     /**
-     * 放置 Response
+     * 获取服务容器
      *
-     * @param response 响应结果，不能为 {@code null}
+     * @return 服务容器
      */
-    public void placeResponse(Response response) {
-        this.responseMap.put(response.getRequestId(), response);
-    }
-
-    /**
-     * 收取 Response
-     *
-     * @param requestId 请求 ID
-     * @return 响应结果，可能为 {@code null}
-     */
-    public Response fetchResponse(long requestId) {
-        return this.responseMap.remove(requestId);
-    }
-
     public ServiceContainer getServiceContainer() {
-        return this.container;
-    }
-
-    public ServiceProxy getServiceProxy(ServiceDescriptor descriptor) {
-        return container.getServiceProxy(descriptor);
+        return this.serviceContainer;
     }
 
 }

@@ -8,6 +8,7 @@ import com.neil.simplerpc.core.service.ServiceInstance;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -24,6 +25,8 @@ public class ServiceContainer implements ServiceListener {
 
     private final ConcurrentHashMap<ServiceDescriptor, ServiceGroup> serviceGroupMap;
 
+    private CopyOnWriteArrayList<ServiceProxy> recoverList;
+
     private static final int STATE_CLOSED = -1;
 
     private static final int STATE_BUILD = 0;
@@ -34,6 +37,7 @@ public class ServiceContainer implements ServiceListener {
         this.clientContext = clientContext;
         this.recoverService = Executors.newSingleThreadExecutor();
         this.serviceGroupMap = new ConcurrentHashMap<>();
+        this.recoverList = new CopyOnWriteArrayList<>();
     }
 
     public ServiceProxy getServiceProxy(ServiceDescriptor descriptor) {
@@ -77,7 +81,9 @@ public class ServiceContainer implements ServiceListener {
         if (state == STATE_CLOSED) {
             throw new SimpleRpcException("service container is already closed. recover service instance: `" + proxy + "`.");
         }
-        recoverService.submit(new RecoverTask(proxy));
+        if (!recoverList.contains(proxy)) {
+            recoverService.submit(new RecoverTask(proxy));
+        }
     }
 
     @Override

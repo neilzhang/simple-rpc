@@ -1,7 +1,8 @@
-package com.neil.simplerpc.core.server;
+package com.neil.simplerpc.test;
 
 import com.neil.simplerpc.core.method.listener.ServerInvocationListener;
 import com.neil.simplerpc.core.method.point.MethodInvocationPoint;
+import com.neil.simplerpc.core.server.RpcServer;
 
 import java.util.Scanner;
 

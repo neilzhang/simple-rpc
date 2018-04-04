@@ -3,7 +3,7 @@ package com.neil.simplerpc.core.method.handler;
 import com.neil.simplerpc.core.client.RpcClient;
 import com.neil.simplerpc.core.method.listener.ClientInvocationListener;
 import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
-import com.neil.simplerpc.core.method.point.MethodDelegateMethodInvocationPoint;
+import com.neil.simplerpc.core.method.point.MethodDelegateInvocationPoint;
 import com.neil.simplerpc.core.method.point.MethodInvocationPoint;
 
 import java.lang.reflect.InvocationHandler;
@@ -28,7 +28,7 @@ public class MethodDelegateInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        MethodInvocationPoint point = new MethodDelegateMethodInvocationPoint(rpcClient, service);
+        MethodInvocationPoint point = new MethodDelegateInvocationPoint(rpcClient, service);
         point.setMethod(method);
         point.setArgs(args);
         if (listener == null) {

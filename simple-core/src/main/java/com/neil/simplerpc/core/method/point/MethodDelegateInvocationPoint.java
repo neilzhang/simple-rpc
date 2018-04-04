@@ -9,7 +9,7 @@ import java.lang.reflect.Method;
 /**
  * @author neil
  */
-public class MethodDelegateMethodInvocationPoint implements MethodInvocationPoint {
+public class MethodDelegateInvocationPoint implements MethodInvocationPoint {
 
     private RpcClient rpcClient;
 
@@ -21,17 +21,19 @@ public class MethodDelegateMethodInvocationPoint implements MethodInvocationPoin
 
     private Object[] args;
 
-    private DelegatedMethod delegatedMethod;
-
-    public MethodDelegateMethodInvocationPoint(RpcClient rpcClient, Class<?> service) {
+    public MethodDelegateInvocationPoint(RpcClient rpcClient, Class<?> service) {
         this.rpcClient = rpcClient;
         this.service = service;
-        this.delegatedMethod = new DelegatedMethodImpl();
     }
 
     @Override
     public Object proceed() throws Throwable {
-        return delegatedMethod.call(service, method, args);
+        ResponseFuture responseFuture = rpcClient.call(service, method, args);
+        Response response = responseFuture.get();
+        if (!response.isSuccess()) {
+            throw response.getThrowable();
+        }
+        return response.getData();
     }
 
     @Override
@@ -62,26 +64,6 @@ public class MethodDelegateMethodInvocationPoint implements MethodInvocationPoin
     @Override
     public void setArgs(Object[] args) {
         this.args = args;
-    }
-
-    interface DelegatedMethod {
-
-        Object call(Class<?> service, Method method, Object[] args) throws Throwable;
-
-    }
-
-    class DelegatedMethodImpl implements DelegatedMethod {
-
-        @Override
-        public Object call(Class<?> service, Method method, Object[] args) throws Throwable {
-            ResponseFuture responseFuture = rpcClient.call(service, method, args);
-            Response response = responseFuture.get();
-            if (!response.isSuccess()) {
-                throw response.getThrowable();
-            }
-            return response.getData();
-        }
-
     }
 
 }

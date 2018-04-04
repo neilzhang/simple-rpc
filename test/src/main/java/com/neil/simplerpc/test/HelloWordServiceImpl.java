@@ -1,4 +1,4 @@
-package com.neil.simplerpc.core.server;
+package com.neil.simplerpc.test;
 
 /**
  * @author neil
@@ -6,8 +6,8 @@ package com.neil.simplerpc.core.server;
 public class HelloWordServiceImpl implements HelloWordService {
 
     @Override
-    public void sayHello() {
-        System.out.println("Hello World!");
+    public String sayHello(String name) {
+        return "Hello " + name + "!";
     }
 
 }

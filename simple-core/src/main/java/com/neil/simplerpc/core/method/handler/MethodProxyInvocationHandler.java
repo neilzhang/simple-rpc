@@ -2,7 +2,7 @@ package com.neil.simplerpc.core.method.handler;
 
 import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
 import com.neil.simplerpc.core.method.point.MethodInvocationPoint;
-import com.neil.simplerpc.core.method.point.MethodProxyMethodInvocationPoint;
+import com.neil.simplerpc.core.method.point.MethodProxyInvocationPoint;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -27,7 +27,7 @@ public class MethodProxyInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        MethodInvocationPoint point = new MethodProxyMethodInvocationPoint();
+        MethodInvocationPoint point = new MethodProxyInvocationPoint();
         point.setTarget(target);
         point.setMethod(method);
         point.setArgs(args);

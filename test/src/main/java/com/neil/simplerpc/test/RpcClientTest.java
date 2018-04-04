@@ -1,4 +1,4 @@
-package com.neil.simplerpc.core.server;
+package com.neil.simplerpc.test;
 
 import com.neil.simplerpc.core.client.RpcClient;
 import com.neil.simplerpc.core.method.listener.ClientInvocationListener;
@@ -31,7 +31,7 @@ public class RpcClientTest {
                                 }
                             })
                             .build();
-                    rpcClient.start();
+                    rpcClient.init();
                     helloWordService = rpcClient.proxy(HelloWordService.class);
                     System.out.println("started");
                     break;
@@ -44,12 +44,11 @@ public class RpcClientTest {
                 case "call":
                     if (rpcClient != null) {
                         try {
-                            helloWordService.sayHello();
+                            System.out.println(helloWordService.sayHello("neil"));
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
                     }
-                    System.out.println("called");
                     break;
             }
         }

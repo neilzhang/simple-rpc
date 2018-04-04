@@ -63,8 +63,7 @@ public class ClientBuilder {
      * @return RpcClient 实例
      */
     public RpcClient build() {
-        assert zkConn != null;
-        return new RpcClient(zkConn, timeout, listener);
+        return new RpcClient(this.zkConn, this.timeout, this.listener);
     }
 
 

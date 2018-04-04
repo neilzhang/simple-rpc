@@ -5,7 +5,7 @@ import java.lang.reflect.Method;
 /**
  * @author neil
  */
-public class MethodProxyMethodInvocationPoint implements MethodInvocationPoint {
+public class MethodProxyInvocationPoint implements MethodInvocationPoint {
 
     private Object target;
 
