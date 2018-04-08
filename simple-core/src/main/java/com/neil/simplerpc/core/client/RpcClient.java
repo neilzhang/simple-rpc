@@ -1,10 +1,11 @@
 package com.neil.simplerpc.core.client;
 
 import com.neil.simplerpc.core.Request;
+import com.neil.simplerpc.core.client.method.point.MethodDelegateInvocationPoint;
 import com.neil.simplerpc.core.exception.RpcTimeoutException;
 import com.neil.simplerpc.core.exception.SimpleRpcException;
-import com.neil.simplerpc.core.method.handler.MethodDelegateInvocationHandler;
-import com.neil.simplerpc.core.method.listener.ClientInvocationListener;
+import com.neil.simplerpc.core.method.handler.MethodInvocationHandler;
+import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
 import com.neil.simplerpc.core.registry.discovery.ServiceDiscovery;
 import com.neil.simplerpc.core.service.ServiceDescriptor;
 
@@ -26,7 +27,7 @@ public class RpcClient {
 
     private final int timeout;
 
-    private final ClientInvocationListener listener;
+    private final MethodInvocationListener listener;
 
     private final RequestIdGenerator idGenerator = new RequestIdGenerator();
 
@@ -40,7 +41,7 @@ public class RpcClient {
         this(zkConn, timeout, null);
     }
 
-    public RpcClient(String zkConn, int timeout, ClientInvocationListener listener) {
+    public RpcClient(String zkConn, int timeout, MethodInvocationListener listener) {
         this.timeout = timeout;
         this.listener = listener;
         this.clientContext = new ClientContext();
@@ -59,10 +60,11 @@ public class RpcClient {
      * @return 可以发起远程调用的服务代理
      */
     public <T> T proxy(Class<T> service) {
+        MethodDelegateInvocationPoint point = new MethodDelegateInvocationPoint(this, service);
         Object proxy = Proxy.newProxyInstance(
                 this.getClass().getClassLoader(),
                 new Class[]{service},
-                new MethodDelegateInvocationHandler(this, service, this.listener));
+                new MethodInvocationHandler(point, this.listener));
         ServiceDescriptor descriptor = new ServiceDescriptor(service.getName());
         this.serviceDiscovery.subscribe(descriptor, this.clientContext.getServiceContainer());
         return (T) proxy;

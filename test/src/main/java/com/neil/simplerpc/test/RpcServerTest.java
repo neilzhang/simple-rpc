@@ -1,6 +1,6 @@
 package com.neil.simplerpc.test;
 
-import com.neil.simplerpc.core.method.listener.ServerInvocationListener;
+import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
 import com.neil.simplerpc.core.method.point.MethodInvocationPoint;
 import com.neil.simplerpc.core.server.RpcServer;
 
@@ -17,7 +17,7 @@ public class RpcServerTest {
                 .zoo("127.0.0.1:2181")
                 .bossThread(1)
                 .workThread(4)
-                .addListener(new ServerInvocationListener() {
+                .addListener(new MethodInvocationListener() {
                     @Override
                     public Object around(MethodInvocationPoint point) throws Throwable {
                         // to do something as framework level without any business.

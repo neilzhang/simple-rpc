@@ -1,8 +1,9 @@
-package com.neil.simplerpc.core.method.point;
+package com.neil.simplerpc.core.client.method.point;
 
 import com.neil.simplerpc.core.Response;
 import com.neil.simplerpc.core.client.ResponseFuture;
 import com.neil.simplerpc.core.client.RpcClient;
+import com.neil.simplerpc.core.method.point.MethodInvocationPoint;
 
 import java.lang.reflect.Method;
 

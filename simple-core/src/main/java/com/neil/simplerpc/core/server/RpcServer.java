@@ -1,12 +1,13 @@
 package com.neil.simplerpc.core.server;
 
-import com.neil.simplerpc.core.codec.KryoDecoder;
-import com.neil.simplerpc.core.codec.KryoEncoder;
+import com.neil.simplerpc.core.channel.handler.codec.KryoDecoder;
+import com.neil.simplerpc.core.channel.handler.codec.KryoEncoder;
+import com.neil.simplerpc.core.method.handler.MethodInvocationHandler;
+import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
+import com.neil.simplerpc.core.registry.provider.ServiceProvider;
+import com.neil.simplerpc.core.server.method.point.MethodProxyInvocationPoint;
 import com.neil.simplerpc.core.service.ServiceDescriptor;
 import com.neil.simplerpc.core.service.ServiceInstance;
-import com.neil.simplerpc.core.registry.provider.ServiceProvider;
-import com.neil.simplerpc.core.method.handler.MethodProxyInvocationHandler;
-import com.neil.simplerpc.core.method.listener.ServerInvocationListener;
 import com.neil.simplerpc.core.util.HostUtil;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
@@ -27,7 +28,7 @@ public class RpcServer {
 
     private final int port;
 
-    private final ServerInvocationListener listener;
+    private final MethodInvocationListener listener;
 
     private final EventLoopGroup bossGroup;
 
@@ -56,7 +57,7 @@ public class RpcServer {
         this(port, zkConn, bossThread, workThread, null);
     }
 
-    public RpcServer(int port, String zkConn, int bossThread, int workThread, ServerInvocationListener listener) {
+    public RpcServer(int port, String zkConn, int bossThread, int workThread, MethodInvocationListener listener) {
         this.host = HostUtil.getLocalHost();
         this.port = port;
         this.listener = listener;
@@ -116,10 +117,12 @@ public class RpcServer {
     }
 
     public void publish(Class<?> service, Object serviceImpl) {
+        MethodProxyInvocationPoint point = new MethodProxyInvocationPoint();
+        point.setTarget(serviceImpl);
         Object proxy = Proxy.newProxyInstance(
                 this.getClass().getClassLoader(),
                 new Class[]{service},
-                new MethodProxyInvocationHandler(serviceImpl, listener));
+                new MethodInvocationHandler(point, this.listener));
         serverContext.registerBean(service, proxy);
         publish(service.getName(), host, port);
     }

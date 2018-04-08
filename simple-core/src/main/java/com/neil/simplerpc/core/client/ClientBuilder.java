@@ -1,6 +1,6 @@
 package com.neil.simplerpc.core.client;
 
-import com.neil.simplerpc.core.method.listener.ClientInvocationListener;
+import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
 
 /**
  * Client 构建器
@@ -22,7 +22,7 @@ public class ClientBuilder {
     /**
      * 客户端调用监听器
      */
-    private ClientInvocationListener listener;
+    private MethodInvocationListener listener;
 
     /**
      * 配置 zookeeper 服务中心地址
@@ -52,7 +52,7 @@ public class ClientBuilder {
      * @param clientListener 客户端调用监听器
      * @return Client 构建器
      */
-    public ClientBuilder addListener(ClientInvocationListener clientListener) {
+    public ClientBuilder addListener(MethodInvocationListener clientListener) {
         this.listener = clientListener;
         return this;
     }

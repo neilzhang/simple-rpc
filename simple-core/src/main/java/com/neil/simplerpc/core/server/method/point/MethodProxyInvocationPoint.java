@@ -1,4 +1,6 @@
-package com.neil.simplerpc.core.method.point;
+package com.neil.simplerpc.core.server.method.point;
+
+import com.neil.simplerpc.core.method.point.MethodInvocationPoint;
 
 import java.lang.reflect.Method;
 

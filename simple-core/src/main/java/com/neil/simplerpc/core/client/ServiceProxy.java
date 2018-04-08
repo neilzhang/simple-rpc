@@ -1,8 +1,8 @@
 package com.neil.simplerpc.core.client;
 
 import com.neil.simplerpc.core.Request;
-import com.neil.simplerpc.core.codec.KryoDecoder;
-import com.neil.simplerpc.core.codec.KryoEncoder;
+import com.neil.simplerpc.core.channel.handler.codec.KryoDecoder;
+import com.neil.simplerpc.core.channel.handler.codec.KryoEncoder;
 import com.neil.simplerpc.core.exception.SimpleRpcException;
 import com.neil.simplerpc.core.service.ServiceDescriptor;
 import com.neil.simplerpc.core.service.ServiceInstance;

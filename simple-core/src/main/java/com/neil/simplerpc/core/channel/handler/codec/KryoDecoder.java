@@ -1,4 +1,4 @@
-package com.neil.simplerpc.core.codec;
+package com.neil.simplerpc.core.channel.handler.codec;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;

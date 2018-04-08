@@ -1,7 +1,7 @@
 package com.neil.simplerpc.test;
 
 import com.neil.simplerpc.core.client.RpcClient;
-import com.neil.simplerpc.core.method.listener.ClientInvocationListener;
+import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
 import com.neil.simplerpc.core.method.point.MethodInvocationPoint;
 
 import java.util.Scanner;
@@ -22,7 +22,7 @@ public class RpcClientTest {
                     rpcClient = RpcClient.builder()
                             .zkCoon("127.0.0.1:2181")
                             .timeout(3000)
-                            .addListener(new ClientInvocationListener() {
+                            .addListener(new MethodInvocationListener() {
                                 @Override
                                 public Object around(MethodInvocationPoint point) throws Throwable {
                                     // to do something as framework level without any business.

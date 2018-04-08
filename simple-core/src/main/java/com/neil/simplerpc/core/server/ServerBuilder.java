@@ -1,6 +1,6 @@
 package com.neil.simplerpc.core.server;
 
-import com.neil.simplerpc.core.method.listener.ServerInvocationListener;
+import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
 
 /**
  * @author neil
@@ -15,7 +15,7 @@ public class ServerBuilder {
 
     private int workThread = 0;
 
-    private ServerInvocationListener listener;
+    private MethodInvocationListener listener;
 
     public ServerBuilder port(int port) {
         this.port = port;
@@ -37,7 +37,7 @@ public class ServerBuilder {
         return this;
     }
 
-    public ServerBuilder addListener(ServerInvocationListener listener) {
+    public ServerBuilder addListener(MethodInvocationListener listener) {
         this.listener = listener;
         return this;
     }
