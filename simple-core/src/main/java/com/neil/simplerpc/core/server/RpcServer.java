@@ -1,7 +1,7 @@
 package com.neil.simplerpc.core.server;
 
-import com.neil.simplerpc.core.channel.handler.codec.KryoDecoder;
-import com.neil.simplerpc.core.channel.handler.codec.KryoEncoder;
+import com.neil.simplerpc.core.netty.handler.codec.KryoDecoder;
+import com.neil.simplerpc.core.netty.handler.codec.KryoEncoder;
 import com.neil.simplerpc.core.method.handler.MethodInvocationHandler;
 import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
 import com.neil.simplerpc.core.registry.provider.ServiceProvider;

@@ -1,4 +1,4 @@
-package com.neil.simplerpc.core.channel.handler.codec;
+package com.neil.simplerpc.core.netty.handler.codec;
 
 
 import com.esotericsoftware.kryo.Kryo;
@@ -16,25 +16,22 @@ import static io.netty.buffer.Unpooled.wrappedBuffer;
  */
 public class KryoEncoder extends MessageToMessageEncoder<Object> {
 
-    private ThreadLocal<Kryo> kryoMap = new ThreadLocal<>();
+    private static final ThreadLocal<Kryo> kryos = new ThreadLocal<Kryo>() {
+        protected Kryo initialValue() {
+            Kryo kryo = new Kryo();
+            // configure kryo instance, customize settings
+            return kryo;
+        }
+    };
 
     @Override
     protected void encode(ChannelHandlerContext ctx, Object msg, List<Object> out) throws Exception {
         try (ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream(1024);
              Output output = new Output(byteOutputStream)) {
-            getKryo().writeClassAndObject(output, msg);
+            kryos.get().writeClassAndObject(output, msg);
             output.flush();
             out.add(wrappedBuffer(byteOutputStream.toByteArray()));
         }
-    }
-
-    private Kryo getKryo() {
-        Kryo kryo = kryoMap.get();
-        if (kryo == null) {
-            kryo = new Kryo();
-            kryoMap.set(kryo);
-        }
-        return kryo;
     }
 
 }
