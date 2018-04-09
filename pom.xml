@@ -5,13 +5,13 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.neil.rpc</groupId>
-    <artifactId>simple-rpc</artifactId>
+    <groupId>com.neil.simplerpc</groupId>
+    <artifactId>rpc-parent</artifactId>
     <packaging>pom</packaging>
     <version>1.0</version>
 
     <modules>
-        <module>simple-core</module>
+        <module>core</module>
         <module>test</module>
     </modules>
 
