@@ -28,7 +28,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<Response> {
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Response msg) throws Exception {
-        clientContext.getResponseContainer().receive(msg);
+        clientContext.receiveResponse(msg);
     }
 
     @Override

@@ -1,10 +1,9 @@
 package com.neil.simplerpc.core.client;
 
 import com.neil.simplerpc.core.Request;
+import com.neil.simplerpc.core.exception.SimpleRpcException;
 import com.neil.simplerpc.core.netty.handler.codec.KryoDecoder;
 import com.neil.simplerpc.core.netty.handler.codec.KryoEncoder;
-import com.neil.simplerpc.core.exception.SimpleRpcException;
-import com.neil.simplerpc.core.service.ServiceDescriptor;
 import com.neil.simplerpc.core.service.ServiceInstance;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
@@ -33,11 +32,11 @@ public class ServiceProxy extends ServiceInstance {
 
     private volatile int state = STATE_LATENT;
 
-    public ServiceProxy(ServiceDescriptor descriptor, String host, int port, ClientContext clientContext) {
-        super(descriptor, host, port);
+    public ServiceProxy(ServiceInstance instance, ClientContext clientContext) {
+        super(instance.getDescriptor(), instance.getHost(), instance.getPort());
         this.clientContext = clientContext;
         this.group = new NioEventLoopGroup(4); // TODO
-        this.channel = createChannel(host, port);
+        this.channel = createChannel(getHost(), getPort());
     }
 
     public void call(Request request) {

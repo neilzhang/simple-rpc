@@ -66,7 +66,7 @@ public class RpcClient {
                 new Class[]{service},
                 new MethodInvocationHandler(point, this.listener));
         ServiceDescriptor descriptor = new ServiceDescriptor(service.getName());
-        this.serviceDiscovery.subscribe(descriptor, this.clientContext.getServiceContainer());
+        this.serviceDiscovery.subscribe(descriptor, this.clientContext);
         return (T) proxy;
     }
 
@@ -88,12 +88,12 @@ public class RpcClient {
         request.setParameters(parameters);
         request.setRequestId(this.idGenerator.get());
         ServiceDescriptor descriptor = new ServiceDescriptor(service.getName());
-        ServiceProxy proxy = this.clientContext.getServiceContainer().getServiceProxy(descriptor);
+        ServiceProxy proxy = this.clientContext.getServiceProxy(descriptor);
         if (proxy == null) {
             throw new SimpleRpcException("there is no available service proxy. service name: `" + service.getName() + "`.");
         }
         proxy.call(request);
-        return clientContext.getResponseContainer().create(request, timeout);
+        return clientContext.createResponseFuture(request, timeout);
     }
 
     /**
@@ -113,7 +113,7 @@ public class RpcClient {
         if (this.state == STATE_INITIATED) {
             this.state = STATE_CLOSED;
             this.serviceDiscovery.close();
-            this.clientContext.getServiceContainer().close();
+            this.clientContext.destroy();
         }
     }
 

@@ -17,9 +17,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * @author neil
  */
-public class ServiceContainer implements ServiceListener {
-
-    private final ClientContext clientContext;
+public abstract class ServiceContext implements ServiceListener {
 
     private final ExecutorService recoverService;
 
@@ -33,8 +31,7 @@ public class ServiceContainer implements ServiceListener {
 
     private volatile int state = STATE_BUILD;
 
-    public ServiceContainer(ClientContext clientContext) {
-        this.clientContext = clientContext;
+    public ServiceContext() {
         this.recoverService = Executors.newSingleThreadExecutor();
         this.serviceGroupMap = new ConcurrentHashMap<>();
         this.recoverList = new CopyOnWriteArrayList<>();
@@ -77,15 +74,6 @@ public class ServiceContainer implements ServiceListener {
         }
     }
 
-    public void recover(ServiceProxy proxy) {
-        if (state == STATE_CLOSED) {
-            throw new SimpleRpcException("service container is already closed. recover service instance: `" + proxy + "`.");
-        }
-        if (!recoverList.contains(proxy)) {
-            recoverService.submit(new RecoverTask(proxy));
-        }
-    }
-
     @Override
     public void onAdd(ServiceInstance serviceInstance) {
         add(serviceInstance);
@@ -96,7 +84,16 @@ public class ServiceContainer implements ServiceListener {
         remove(serviceInstance);
     }
 
-    public void close() {
+    public void recover(ServiceProxy proxy) {
+        if (state == STATE_CLOSED) {
+            throw new SimpleRpcException("service container is already closed. recover service instance: `" + proxy + "`.");
+        }
+        if (!recoverList.contains(proxy)) {
+            recoverService.submit(new RecoverTask(proxy));
+        }
+    }
+
+    public void destroy() {
         if (state == STATE_BUILD) {
             state = STATE_CLOSED;
             recoverService.shutdown();
@@ -105,6 +102,8 @@ public class ServiceContainer implements ServiceListener {
             }
         }
     }
+
+    public abstract ServiceProxy createServiceProxy(ServiceInstance instance);
 
     class ServiceGroup {
 
@@ -152,13 +151,7 @@ public class ServiceContainer implements ServiceListener {
             try {
                 lock.writeLock().lock();
                 if (!proxyList.contains(serviceInstance)) {
-                    ServiceProxy serviceProxy = new ServiceProxy(
-                            this.descriptor,
-                            serviceInstance.getHost(),
-                            serviceInstance.getPort(),
-                            ServiceContainer.this.clientContext
-                    );
-                    proxyList.add(serviceProxy);
+                    proxyList.add(createServiceProxy(serviceInstance));
                 }
             } finally {
                 lock.writeLock().unlock();

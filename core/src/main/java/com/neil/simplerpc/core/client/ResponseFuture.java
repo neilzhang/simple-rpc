@@ -45,8 +45,8 @@ public class ResponseFuture {
         ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
         try {
-            Response response = clientContext.getResponseContainer().get(requestId);
-            for (; response == null; response = clientContext.getResponseContainer().get(requestId)) {
+            Response response = clientContext.getResponse(requestId);
+            for (; response == null; response = clientContext.getResponse(requestId)) {
                 if (nanos <= 0) {
                     throw new RpcTimeoutException("Rpc request timeout. request: `" + request + "`. timeout: `" + timeout + "`.");
                 }
@@ -69,7 +69,7 @@ public class ResponseFuture {
         lock.lock();
         try {
             done.signal();
-        } catch(Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         } finally {
             lock.unlock();
