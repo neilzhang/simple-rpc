@@ -7,7 +7,6 @@ import io.netty.channel.SimpleChannelInboundHandler;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author neil
@@ -16,13 +15,8 @@ public class ServerHandler extends SimpleChannelInboundHandler<Request> {
 
     private final ServerContext serverContext;
 
-    private final ConcurrentHashMap<String, Method> methodMap;
-
-    private final Object methodMapLock = new Object();
-
     public ServerHandler(ServerContext serverContext) {
         this.serverContext = serverContext;
-        this.methodMap = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -37,23 +31,23 @@ public class ServerHandler extends SimpleChannelInboundHandler<Request> {
         if (bean == null) {
             // TODO add logger
             response.setThrowable(new Throwable(""));
-            writeResponse(ctx, response);
-            return;
-        }
-        Method method = cacheAndGetMethod(bean, methodName, parameterTypes);
-        if (method == null) {
-            // TODO add logger
-            response.setThrowable(new Throwable(""));
-            writeResponse(ctx, response);
-            return;
-        }
-        try {
-            method.setAccessible(true);
-            Object result = method.invoke(bean, params);
-            response.setData(result);
-
-        } catch (InvocationTargetException e) {
-            response.setThrowable(e.getCause());
+        } else {
+            Method method = null;
+            try {
+                method = serverContext.getMethod(bean, methodName, parameterTypes);
+            } catch (NoSuchMethodException e) {
+                // TODO add logger
+                response.setThrowable(new Throwable(""));
+            }
+            if (method != null) {
+                try {
+                    method.setAccessible(true);
+                    Object result = method.invoke(bean, params);
+                    response.setData(result);
+                } catch (InvocationTargetException e) {
+                    response.setThrowable(e.getCause());
+                }
+            }
         }
         writeResponse(ctx, response);
     }
@@ -65,45 +59,6 @@ public class ServerHandler extends SimpleChannelInboundHandler<Request> {
 
     private void writeResponse(ChannelHandlerContext ctx, Response response) {
         ctx.writeAndFlush(response);
-    }
-
-    private Method cacheAndGetMethod(Object bean, String methodName, Class<?>[] parameterTypes) {
-        String signature = getSignature(bean, methodName, parameterTypes);
-        Method method = methodMap.get(signature);
-        if (method == null) {
-            synchronized (methodMapLock) {
-                method = methodMap.get(signature);
-                if (method == null) {
-                    try {
-                        method = bean.getClass().getDeclaredMethod(methodName, parameterTypes);
-                        methodMap.put(signature, method);
-                    } catch (NoSuchMethodException e) {
-                        // TODO add logger
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-        return method;
-    }
-
-    private String getSignature(Object bean, String methodName, Class<?>[] parameterTypes) {
-        StringBuilder signature = new StringBuilder();
-        String serviceName = bean.getClass().getName();
-        signature.append(serviceName);
-        signature.append('.');
-        signature.append(methodName);
-        signature.append('(');
-        if (parameterTypes != null) {
-            for (Class<?> parameterType : parameterTypes) {
-                signature.append(parameterType.getName());
-                if (!parameterType.equals(parameterTypes[parameterTypes.length - 1])) {
-                    signature.append(',');
-                }
-            }
-        }
-        signature.append(')');
-        return signature.toString();
     }
 
 }
