@@ -75,7 +75,7 @@ public class ServiceProxy extends ServiceInstance {
                         .addLast(new LengthFieldPrepender(4))
                         .addLast(new KryoDecoder())
                         .addLast(new KryoEncoder())
-                        .addLast(new ClientHandler(clientContext));
+                        .addLast(new ResponseHandler(clientContext));
             }
 
             @Override

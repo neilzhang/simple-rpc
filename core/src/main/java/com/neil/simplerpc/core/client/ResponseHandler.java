@@ -10,7 +10,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
  *
  * @author neil
  */
-public class ClientHandler extends SimpleChannelInboundHandler<Response> {
+public class ResponseHandler extends SimpleChannelInboundHandler<Response> {
 
     /**
      * 客户端上下文
@@ -22,7 +22,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<Response> {
      *
      * @param clientContext 客户端上下文
      */
-    public ClientHandler(ClientContext clientContext) {
+    public ResponseHandler(ClientContext clientContext) {
         this.clientContext = clientContext;
     }
 

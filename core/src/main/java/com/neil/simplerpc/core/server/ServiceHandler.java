@@ -11,11 +11,11 @@ import java.lang.reflect.Method;
 /**
  * @author neil
  */
-public class ServerHandler extends SimpleChannelInboundHandler<Request> {
+public class ServiceHandler extends SimpleChannelInboundHandler<Request> {
 
     private final ServerContext serverContext;
 
-    public ServerHandler(ServerContext serverContext) {
+    public ServiceHandler(ServerContext serverContext) {
         this.serverContext = serverContext;
     }
 

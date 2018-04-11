@@ -88,7 +88,7 @@ public class RpcServer {
                                     .addLast(new LengthFieldPrepender(4))
                                     .addLast(new KryoDecoder())
                                     .addLast(new KryoEncoder())
-                                    .addLast(new ServerHandler(context));
+                                    .addLast(new ServiceHandler(context));
                         }
 
                         @Override
