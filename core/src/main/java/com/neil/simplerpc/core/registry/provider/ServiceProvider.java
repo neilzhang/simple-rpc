@@ -35,8 +35,7 @@ public class ServiceProvider {
         String servicePath = ZKPaths.makePath(ROOT_PATH, descriptor.getService());
         String instancePath = ZKPaths.makePath(servicePath, target);
         try {
-            zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(instancePath);
-            zkClient.setData().forPath(instancePath, target.getBytes());
+            zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(instancePath, target.getBytes());
         } catch (Exception e) {
             // TODO
             e.printStackTrace();
