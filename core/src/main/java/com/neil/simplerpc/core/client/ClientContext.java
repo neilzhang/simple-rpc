@@ -33,11 +33,11 @@ public class ClientContext extends ServiceContext {
 
     @Override
     public ServiceProxy createServiceProxy(ServiceInstance instance) {
-        return serviceProxyFactory.get(instance);
+        return serviceProxyFactory.create(instance);
     }
 
     public ResponseFuture createResponseFuture(Request request, int timeout) {
-        ResponseFuture responseFuture = responseFutureFactory.get(request, timeout);
+        ResponseFuture responseFuture = responseFutureFactory.create(request, timeout);
         this.futureMap.put(request.getRequestId(), responseFuture);
         return responseFuture;
     }

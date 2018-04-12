@@ -16,7 +16,9 @@ import io.netty.handler.codec.LengthFieldPrepender;
 /**
  * @author neil
  */
-public class ServiceProxy extends ServiceInstance {
+public class ServiceProxy {
+
+    private ServiceInstance instance;
 
     private ClientContext clientContext;
 
@@ -33,10 +35,10 @@ public class ServiceProxy extends ServiceInstance {
     private volatile int state = STATE_LATENT;
 
     public ServiceProxy(ServiceInstance instance, ClientContext clientContext) {
-        super(instance.getDescriptor(), instance.getHost(), instance.getPort());
+        this.instance = instance;
         this.clientContext = clientContext;
         this.group = new NioEventLoopGroup(4); // TODO
-        this.channel = createChannel(getHost(), getPort());
+        this.channel = createChannel(instance.getHost(), instance.getPort());
     }
 
     public void call(Request request) {
@@ -60,6 +62,10 @@ public class ServiceProxy extends ServiceInstance {
 
     public boolean isConnectionBroken() {
         return state != STATE_LATENT && !isActive();
+    }
+
+    public ServiceInstance getServiceInstance() {
+        return instance;
     }
 
     private Channel createChannel(String host, int port) {

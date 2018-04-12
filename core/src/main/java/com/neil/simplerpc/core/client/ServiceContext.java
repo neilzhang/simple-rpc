@@ -8,7 +8,6 @@ import com.neil.simplerpc.core.service.ServiceInstance;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -19,11 +18,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public abstract class ServiceContext implements ServiceListener {
 
-    private final ExecutorService recoverService;
-
     private final ConcurrentHashMap<ServiceDescriptor, ServiceGroup> serviceGroupMap;
-
-    private CopyOnWriteArrayList<ServiceProxy> recoverList;
 
     private static final int STATE_CLOSED = -1;
 
@@ -32,15 +27,13 @@ public abstract class ServiceContext implements ServiceListener {
     private volatile int state = STATE_BUILD;
 
     public ServiceContext() {
-        this.recoverService = Executors.newSingleThreadExecutor();
         this.serviceGroupMap = new ConcurrentHashMap<>();
-        this.recoverList = new CopyOnWriteArrayList<>();
     }
 
     public ServiceProxy getServiceProxy(ServiceDescriptor descriptor) {
         ServiceGroup serviceGroup = serviceGroupMap.get(descriptor);
         if (serviceGroup == null) {
-            throw new SimpleRpcException("there are no available service proxies. service descriptor: `" + descriptor + "`.");
+            throw new SimpleRpcException("there is no available service provider for service descriptor `" + descriptor + "`.");
         }
         return serviceGroup.get();
     }
@@ -84,21 +77,11 @@ public abstract class ServiceContext implements ServiceListener {
         remove(serviceInstance);
     }
 
-    public void recover(ServiceProxy proxy) {
-        if (state == STATE_CLOSED) {
-            throw new SimpleRpcException("service container is already closed. recover service instance: `" + proxy + "`.");
-        }
-        if (!recoverList.contains(proxy)) {
-            recoverService.submit(new RecoverTask(proxy));
-        }
-    }
-
     public void destroy() {
         if (state == STATE_BUILD) {
             state = STATE_CLOSED;
-            recoverService.shutdown();
             for (ServiceGroup serviceGroup : serviceGroupMap.values()) {
-                serviceGroup.clear();
+                serviceGroup.close();
             }
         }
     }
@@ -106,6 +89,8 @@ public abstract class ServiceContext implements ServiceListener {
     public abstract ServiceProxy createServiceProxy(ServiceInstance instance);
 
     class ServiceGroup {
+
+        private final ExecutorService recoverService;
 
         private final ServiceDescriptor descriptor;
 
@@ -115,31 +100,31 @@ public abstract class ServiceContext implements ServiceListener {
 
         private ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
+        private ConcurrentHashMap<ServiceInstance, Long> recoverMap;
+
         public ServiceGroup(ServiceDescriptor descriptor) {
             this.descriptor = descriptor;
             this.count = new AtomicLong();
             this.proxyList = new ArrayList<>();
+            this.recoverMap = new ConcurrentHashMap<>();
+            this.recoverService = Executors.newSingleThreadExecutor();
         }
 
         public ServiceProxy get() {
+            List<ServiceProxy> copy = new ArrayList<>(proxyList);
             ServiceProxy proxy = null;
             int failCount = 0;
-            try {
-                lock.readLock().lock();
-                while (!proxyList.isEmpty() && failCount < 3) {
-                    int index = (int) Math.abs(count.incrementAndGet() % proxyList.size());
-                    proxy = proxyList.get(index);
-                    if (proxy.isActive()) {
-                        break;
-                    } else {
-                        if (proxy.isConnectionBroken()) {
-                            recover(proxy);
-                        }
-                        failCount++;
+            while (!copy.isEmpty() && failCount < 3) {
+                int index = (int) Math.abs(count.incrementAndGet() % copy.size());
+                proxy = copy.get(index);
+                if (proxy.isActive()) {
+                    break;
+                } else {
+                    if (proxy.isConnectionBroken()) {
+                        recoverService.submit(new RecoverTask(proxy.getServiceInstance()));
                     }
+                    failCount++;
                 }
-            } finally {
-                lock.readLock().unlock();
             }
             return proxy;
         }
@@ -150,13 +135,13 @@ public abstract class ServiceContext implements ServiceListener {
             }
             try {
                 lock.writeLock().lock();
-                if (!proxyList.contains(serviceInstance)) {
+                ServiceProxy proxy = get(serviceInstance);
+                if (proxy == null) {
                     proxyList.add(createServiceProxy(serviceInstance));
                 }
             } finally {
                 lock.writeLock().unlock();
             }
-
         }
 
         public void remove(ServiceInstance serviceInstance) {
@@ -165,19 +150,20 @@ public abstract class ServiceContext implements ServiceListener {
             }
             try {
                 lock.writeLock().lock();
-                int index = proxyList.indexOf(serviceInstance);
-                if (index > 0) {
-                    proxyList.get(index).close();
-                    proxyList.remove(index);
+                ServiceProxy proxy = get(serviceInstance);
+                if (proxy != null) {
+                    proxy.close();
+                    proxyList.remove(proxy);
                 }
             } finally {
                 lock.writeLock().unlock();
             }
         }
 
-        public void clear() {
+        public void close() {
             try {
                 lock.writeLock().lock();
+                recoverService.shutdown();
                 for (ServiceProxy proxy : proxyList) {
                     proxy.close();
                 }
@@ -187,24 +173,38 @@ public abstract class ServiceContext implements ServiceListener {
             }
         }
 
-    }
-
-    class RecoverTask implements Runnable {
-
-        private ServiceProxy proxy;
-
-        public RecoverTask(ServiceProxy proxy) {
-            this.proxy = proxy;
+        private ServiceProxy get(ServiceInstance serviceInstance) {
+            for (ServiceProxy proxy : proxyList) {
+                if (serviceInstance.equals(proxy.getServiceInstance())) {
+                    return proxy;
+                }
+            }
+            return null;
         }
 
-        @Override
-        public void run() {
-            try {
-                remove(proxy);
-                add(proxy);
-            } catch (Exception e) {
-                e.printStackTrace();// TODO
+        class RecoverTask implements Runnable {
+
+            private ServiceInstance serviceInstance;
+
+            public RecoverTask(ServiceInstance serviceInstance) {
+                this.serviceInstance = serviceInstance;
             }
+
+            @Override
+            public void run() {
+                try {
+                    Long lastRecoverTime = recoverMap.get(serviceInstance);
+                    if (lastRecoverTime == null || System.currentTimeMillis() - lastRecoverTime > 3 * 1000) {
+                        recoverMap.put(serviceInstance, System.currentTimeMillis());
+
+                        remove(serviceInstance);
+                        add(serviceInstance);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();// TODO
+                }
+            }
+
         }
 
     }

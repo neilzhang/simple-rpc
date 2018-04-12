@@ -13,7 +13,7 @@ public class ResponseFutureFactory {
         this.clientContext = clientContext;
     }
 
-    public ResponseFuture get(Request request, long timeout) {
+    public ResponseFuture create(Request request, long timeout) {
         return new ResponseFuture(request, timeout, clientContext);
     }
 }

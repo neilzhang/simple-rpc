@@ -13,7 +13,7 @@ public class ServiceProxyFactory {
         this.clientContext = clientContext;
     }
 
-    public ServiceProxy get(ServiceInstance instance) {
+    public ServiceProxy create(ServiceInstance instance) {
         return new ServiceProxy(instance, clientContext);
     }
 }
