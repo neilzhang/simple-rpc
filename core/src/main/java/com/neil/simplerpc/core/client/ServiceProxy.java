@@ -2,6 +2,7 @@ package com.neil.simplerpc.core.client;
 
 import com.neil.simplerpc.core.Request;
 import com.neil.simplerpc.core.exception.SimpleRpcException;
+import com.neil.simplerpc.core.netty.handler.heartbeat.HeartbeatHandler;
 import com.neil.simplerpc.core.netty.handler.codec.KryoDecoder;
 import com.neil.simplerpc.core.netty.handler.codec.KryoEncoder;
 import com.neil.simplerpc.core.service.ServiceInstance;
@@ -12,6 +13,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
+import io.netty.handler.timeout.IdleStateHandler;
 
 /**
  * @author neil
@@ -77,10 +79,12 @@ public class ServiceProxy {
             @Override
             public void initChannel(SocketChannel ch) throws Exception {
                 ch.pipeline()
+                        .addLast(new IdleStateHandler(0, 30, 0))
                         .addLast(new LengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4))
                         .addLast(new LengthFieldPrepender(4))
                         .addLast(new KryoDecoder())
                         .addLast(new KryoEncoder())
+                        .addLast(new HeartbeatHandler())
                         .addLast(new ResponseHandler(clientContext));
             }
 

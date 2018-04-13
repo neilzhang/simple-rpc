@@ -1,5 +1,6 @@
 package com.neil.simplerpc.core.server;
 
+import com.neil.simplerpc.core.netty.handler.heartbeat.HeartbeatHandler;
 import com.neil.simplerpc.core.netty.handler.codec.KryoDecoder;
 import com.neil.simplerpc.core.netty.handler.codec.KryoEncoder;
 import com.neil.simplerpc.core.method.handler.MethodInvocationHandler;
@@ -16,6 +17,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
+import io.netty.handler.timeout.IdleStateHandler;
 
 import java.lang.reflect.Proxy;
 
@@ -84,10 +86,12 @@ public class RpcServer {
                         @Override
                         public void initChannel(SocketChannel ch) throws Exception {
                             ch.pipeline()
+                                    .addLast(new IdleStateHandler(0, 30, 0))
                                     .addLast(new LengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4))
                                     .addLast(new LengthFieldPrepender(4))
                                     .addLast(new KryoDecoder())
                                     .addLast(new KryoEncoder())
+                                    .addLast(new HeartbeatHandler())
                                     .addLast(new ServiceHandler(context));
                         }
 
