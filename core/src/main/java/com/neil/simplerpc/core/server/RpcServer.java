@@ -52,10 +52,6 @@ public class RpcServer {
      */
     private volatile int state = STATE_INITIATED;
 
-    public RpcServer(int port, int bossThread, int workThread) {
-        this(port, null, bossThread, workThread, null);
-    }
-
     public RpcServer(int port, String zkConn, int bossThread, int workThread) {
         this(port, zkConn, bossThread, workThread, null);
     }
