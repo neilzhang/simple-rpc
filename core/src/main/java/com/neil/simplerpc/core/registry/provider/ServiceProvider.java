@@ -1,5 +1,6 @@
 package com.neil.simplerpc.core.registry.provider;
 
+import com.neil.simplerpc.core.exception.SimpleRpcException;
 import com.neil.simplerpc.core.service.ServiceDescriptor;
 import com.neil.simplerpc.core.service.ServiceInstance;
 import org.apache.curator.framework.CuratorFramework;
@@ -29,7 +30,7 @@ public class ServiceProvider {
         this.zkClient.close();
     }
 
-    public void publish(ServiceInstance instance) {
+    public void publish(ServiceInstance instance) throws SimpleRpcException {
         ServiceDescriptor descriptor = instance.getDescriptor();
         String target = getTarget(instance.getHost(), instance.getPort());
         String servicePath = ZKPaths.makePath(ROOT_PATH, descriptor.getService());
@@ -37,8 +38,7 @@ public class ServiceProvider {
         try {
             zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(instancePath, target.getBytes());
         } catch (Exception e) {
-            // TODO
-            e.printStackTrace();
+            throw new SimpleRpcException("ServiceProvider#publish(ServiceInstance) exception. Service instance: `" + instancePath + "`.", e);
         }
     }
 

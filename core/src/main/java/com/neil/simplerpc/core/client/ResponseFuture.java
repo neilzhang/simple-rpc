@@ -69,8 +69,6 @@ public class ResponseFuture {
         lock.lock();
         try {
             done.signal();
-        } catch (Exception e) {
-            e.printStackTrace();
         } finally {
             lock.unlock();
         }

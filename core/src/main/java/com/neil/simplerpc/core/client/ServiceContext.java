@@ -4,6 +4,8 @@ import com.neil.simplerpc.core.exception.SimpleRpcException;
 import com.neil.simplerpc.core.registry.discovery.ServiceListener;
 import com.neil.simplerpc.core.service.ServiceDescriptor;
 import com.neil.simplerpc.core.service.ServiceInstance;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +19,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @author neil
  */
 public abstract class ServiceContext implements ServiceListener {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ServiceContext.class);
 
     private final ConcurrentHashMap<ServiceDescriptor, ServiceGroup> serviceGroupMap;
 
@@ -201,7 +205,7 @@ public abstract class ServiceContext implements ServiceListener {
                         add(serviceInstance);
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();// TODO
+                    LOGGER.error("RecoverTask exception.", e);
                 }
             }
 

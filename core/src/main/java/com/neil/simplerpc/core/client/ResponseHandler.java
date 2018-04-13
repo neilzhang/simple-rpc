@@ -3,6 +3,8 @@ package com.neil.simplerpc.core.client;
 import com.neil.simplerpc.core.Response;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 客户端处理器
@@ -11,6 +13,8 @@ import io.netty.channel.SimpleChannelInboundHandler;
  * @author neil
  */
 public class ResponseHandler extends SimpleChannelInboundHandler<Response> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ResponseHandler.class);
 
     /**
      * 客户端上下文
@@ -33,7 +37,7 @@ public class ResponseHandler extends SimpleChannelInboundHandler<Response> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        cause.printStackTrace();
+        LOGGER.error("ResponseHandler exception.", cause);
     }
 
 }

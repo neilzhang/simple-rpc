@@ -4,6 +4,8 @@ import com.neil.simplerpc.core.Request;
 import com.neil.simplerpc.core.Response;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -12,6 +14,8 @@ import java.lang.reflect.Method;
  * @author neil
  */
 public class ServiceHandler extends SimpleChannelInboundHandler<Request> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ServiceHandler.class);
 
     private final ServerContext serverContext;
 
@@ -54,7 +58,7 @@ public class ServiceHandler extends SimpleChannelInboundHandler<Request> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        cause.printStackTrace();
+        LOGGER.error("ServiceHandler exception.", cause);
     }
 
     private void writeResponse(ChannelHandlerContext ctx, Response response) {

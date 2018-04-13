@@ -59,7 +59,7 @@ public class RpcClient {
      * @param service 服务类
      * @return 可以发起远程调用的服务代理
      */
-    public <T> T proxy(Class<T> service) {
+    public <T> T proxy(Class<T> service) throws SimpleRpcException {
         MethodDelegateInvocationPoint point = new MethodDelegateInvocationPoint(this, service);
         Object proxy = Proxy.newProxyInstance(
                 this.getClass().getClassLoader(),

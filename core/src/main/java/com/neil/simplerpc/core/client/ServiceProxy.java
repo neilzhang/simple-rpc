@@ -2,9 +2,9 @@ package com.neil.simplerpc.core.client;
 
 import com.neil.simplerpc.core.Request;
 import com.neil.simplerpc.core.exception.SimpleRpcException;
-import com.neil.simplerpc.core.netty.handler.heartbeat.HeartbeatHandler;
 import com.neil.simplerpc.core.netty.handler.codec.KryoDecoder;
 import com.neil.simplerpc.core.netty.handler.codec.KryoEncoder;
+import com.neil.simplerpc.core.netty.handler.heartbeat.HeartbeatHandler;
 import com.neil.simplerpc.core.service.ServiceInstance;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
@@ -14,11 +14,15 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.timeout.IdleStateHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author neil
  */
 public class ServiceProxy {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ServiceProxy.class);
 
     private ServiceInstance instance;
 
@@ -90,7 +94,7 @@ public class ServiceProxy {
 
             @Override
             public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-                cause.printStackTrace();
+                LOGGER.error("ChannelInitializer exception.", cause);
             }
         });
 

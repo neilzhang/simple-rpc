@@ -1,10 +1,11 @@
 package com.neil.simplerpc.core.server;
 
-import com.neil.simplerpc.core.netty.handler.heartbeat.HeartbeatHandler;
-import com.neil.simplerpc.core.netty.handler.codec.KryoDecoder;
-import com.neil.simplerpc.core.netty.handler.codec.KryoEncoder;
+import com.neil.simplerpc.core.exception.SimpleRpcException;
 import com.neil.simplerpc.core.method.handler.MethodInvocationHandler;
 import com.neil.simplerpc.core.method.listener.MethodInvocationListener;
+import com.neil.simplerpc.core.netty.handler.codec.KryoDecoder;
+import com.neil.simplerpc.core.netty.handler.codec.KryoEncoder;
+import com.neil.simplerpc.core.netty.handler.heartbeat.HeartbeatHandler;
 import com.neil.simplerpc.core.registry.provider.ServiceProvider;
 import com.neil.simplerpc.core.server.method.point.MethodProxyInvocationPoint;
 import com.neil.simplerpc.core.service.ServiceDescriptor;
@@ -120,7 +121,7 @@ public class RpcServer {
         }
     }
 
-    public void publish(Class<?> service, Object serviceImpl) {
+    public void publish(Class<?> service, Object serviceImpl) throws SimpleRpcException {
         MethodProxyInvocationPoint point = new MethodProxyInvocationPoint();
         point.setTarget(serviceImpl);
         Object proxy = Proxy.newProxyInstance(

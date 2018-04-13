@@ -1,12 +1,17 @@
 package com.neil.simplerpc.core.registry.discovery;
 
+import com.neil.simplerpc.core.exception.SimpleRpcException;
 import com.neil.simplerpc.core.service.ServiceDescriptor;
 import com.neil.simplerpc.core.service.ServiceInstance;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
-import org.apache.curator.framework.recipes.cache.*;
+import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.curator.utils.ZKPaths;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -18,6 +23,8 @@ import java.util.concurrent.Executors;
  * @author neil
  */
 public class ServiceDiscovery {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ServiceDiscovery.class);
 
     private static final String ROOT_PATH = "/simple-rpc";
 
@@ -40,14 +47,14 @@ public class ServiceDiscovery {
             try {
                 childrenCache.close();
             } catch (IOException e) {
-                e.printStackTrace();
+                LOGGER.error("PathChildrenCache#close() exception.", e);
             }
         }
         executor.shutdown();
         this.zkClient.close();
     }
 
-    public void subscribe(final ServiceDescriptor descriptor, ServiceListener listener) {
+    public void subscribe(final ServiceDescriptor descriptor, ServiceListener listener) throws SimpleRpcException {
         String servicePath = ZKPaths.makePath(ROOT_PATH, descriptor.getService());
         PathChildrenCache childrenCache = new PathChildrenCache(this.zkClient, servicePath, true);
         childrenCache.getListenable().addListener(
@@ -71,10 +78,10 @@ public class ServiceDiscovery {
         );
         try {
             childrenCache.start();
-            this.pathChildrenCacheList.add(childrenCache);
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new SimpleRpcException("PathChildrenCache#start() exception.", e);
         }
+        this.pathChildrenCacheList.add(childrenCache);
     }
 
     private ServiceInstance createServiceInstance(ServiceDescriptor descriptor, String target) {
@@ -84,7 +91,7 @@ public class ServiceDiscovery {
             int port = Integer.valueOf(parts[1]);
             return new ServiceInstance(descriptor, host, port);
         } catch (ArrayIndexOutOfBoundsException | NumberFormatException e) {
-            e.printStackTrace();
+            LOGGER.error("ServiceDiscovery#createServiceInstance() error. service descriptor: `" + descriptor + "`. target: `" + target + "`.", e);
             return null;
         }
     }
